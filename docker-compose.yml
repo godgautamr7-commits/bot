@@ -1,0 +1,30 @@
+services:
+  bot:
+    build: .
+    container_name: lb-bot
+    restart: unless-stopped
+    env_file: .env
+    # host network: the node-link panel is on 127.0.0.1:${PANEL_PORT} of the host (point cloudflared there),
+    # and the bot can manage the host firewall for the VPS network.
+    network_mode: host
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # KVM auto-detect: lets node1 use the HOST's libvirt (only used when libvirt + /dev/kvm exist on the host)
+      - /var/run/libvirt:/var/run/libvirt
+      - /var/lib/lb-kvm:/var/lib/lb-kvm
+      - bot-data:/data
+
+  # Optional: Cloudflare Tunnel in Docker. Enable with:  docker compose --profile tunnel up -d
+  # (set CLOUDFLARE_TUNNEL_TOKEN in .env; in the Cloudflare dashboard point the public hostname to http://localhost:8765)
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: lb-cloudflared
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARE_TUNNEL_TOKEN:-}
+
+volumes:
+  bot-data:
